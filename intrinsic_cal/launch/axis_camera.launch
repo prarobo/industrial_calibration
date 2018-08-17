@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="hostname" default="192.168.0.90"/>
+
+  <group ns="axis">
+
+    <param name="hostname" value="192.168.0.90" />
+    <param name="width" value="1280" />
+    <param name="height" value="720" />
+
+    <node pkg="image_transport" type="republish" name="republish" args="compressed">
+        <remap from="in" to="image_raw" />
+        <remap from="out" to="image_raw_out" />
+    </node>
+
+    <node pkg="image_proc" type="image_proc" name="image_proc" args="compressed">
+        <remap from="image_raw" to="image_raw_out" />
+    </node>
+
+    <node name="axis" pkg="axis_camera" type="axis.py" output="screen" required="True"/>
+  </group>
+
+</launch>

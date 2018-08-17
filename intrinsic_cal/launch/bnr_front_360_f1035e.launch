@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="camera_name" default="front_360_f1035e"/>
+  <arg name="hostname" default="192.168.0.90"/>
+
+  <!-- Start the camera -->
+  <include file="$(find intrinsic_cal)/launch/axis_camera.launch">
+    <arg name="hostname" default="$(arg hostname)"/>
+  </include>
+
+  <!-- Start the calibration node -->
+  <node pkg="intrinsic_cal" type="rail_ical" name="rail_intrinsic_calibration" output="screen" >
+
+    <!-- axis -->
+    <param name="image_topic" value="/axis/image_raw_out" />
+    <param name="camera_name" value="axis" />
+    <param name="image_height" value="1280" />
+    <param name="image_width" value="720" />
+
+    <!-- Target parameters -->
+    <param name="pattern_type" value="chessboard" />
+    <param name="target_rows" value="6" />
+    <param name="target_cols" value="12" />
+    <param name="target_spacing" value="0.108" />
+
+    <!-- Setup parameters -->
+    <param name="camera_spacing" value="0.110" />
+    <param name="num_camera_locations" value="15" />
+    <param name="target_to_rail_distance" value="0.388" />
+
+    <!-- Remappings -->
+    <remap from="color_image" to="/axis/image_raw_out" />
+
+  </node>
+</launch>
