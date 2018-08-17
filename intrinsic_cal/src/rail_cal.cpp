@@ -125,9 +125,9 @@ RailCalService::RailCalService(ros::NodeHandle nh)
   }
   if (!pnh.getParam("target_circle_dia", circle_diameter_))
   {
-    ROS_ERROR("Must set param:  target_circle_dia");
-  }
-  if (!pnh.getParam("spacing", spacing_))
+    ROS_DEBUG("Must set param:  target_circle_dia");
+  }  
+  if (!pnh.getParam("target_spacing", spacing_))
   {
     ROS_ERROR("Must set param:  spacing");
   }
