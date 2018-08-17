@@ -56,7 +56,7 @@ public:
   RailCalService(ros::NodeHandle nh);
   ~RailCalService(){};
   bool executeCallBack(intrinsic_cal::rail_ical_run::Request& req, intrinsic_cal::rail_ical_run::Response& res);
-  void initMCircleTarget(int rows, int cols, double circle_dia, double spacing);
+  void initTarget(int rows, int cols, double spacing, double circle_dia = 0.0);
   void cameraCallback(const sensor_msgs::Image& image);
 
 private:
@@ -72,10 +72,11 @@ private:
   double center_y_;
   string image_topic_;
   string camera_name_;
+  string pattern_type_;
   int target_type_;
   int target_rows_;
   int target_cols_;
-  double circle_spacing_;
+  double spacing_;
   double circle_diameter_;
   int num_camera_locations_;
   double camera_spacing_;
@@ -101,7 +102,18 @@ RailCalService::RailCalService(ros::NodeHandle nh)
     ROS_ERROR("Must set param:  camera_name");
   }
 
-  target_type_ == pattern_options::ModifiedCircleGrid;
+  if (!pnh.getParam("pattern_type", pattern_type_))
+  {
+    ROS_ERROR("Must set param:  pattern_type");
+  }
+  if(pattern_type_.compare("chessboard") == 0) 
+  {
+    target_type_ = pattern_options::Chessboard;
+  } 
+  else // Default to modified circle pattern
+  {
+    target_type_ = pattern_options::ModifiedCircleGrid;
+  }    
 
   if (!pnh.getParam("target_rows", target_rows_))
   {
@@ -115,9 +127,9 @@ RailCalService::RailCalService(ros::NodeHandle nh)
   {
     ROS_ERROR("Must set param:  target_circle_dia");
   }
-  if (!pnh.getParam("target_spacing", circle_spacing_))
+  if (!pnh.getParam("spacing", spacing_))
   {
-    ROS_ERROR("Must set param:  target_spacing");
+    ROS_ERROR("Must set param:  spacing");
   }
   if (!pnh.getParam("num_camera_locations", num_camera_locations_))
   {
@@ -194,7 +206,18 @@ RailCalService::RailCalService(ros::NodeHandle nh)
            camera_->camera_parameters_.distortion_k3, camera_->camera_parameters_.distortion_p1,
            camera_->camera_parameters_.distortion_p2);
 
-  initMCircleTarget(target_rows_, target_cols_, circle_diameter_, circle_spacing_);
+  if(target_type_ == pattern_options::Chessboard)
+  {
+    initTarget(target_rows_, target_cols_, spacing_);
+  }
+  else if(target_type_ == pattern_options::ModifiedCircleGrid)
+  {
+    initTarget(target_rows_, target_cols_, spacing_, circle_diameter_);
+  }
+  else
+  {
+    ROS_FATAL("Unknown target type");
+  }
   rail_cal_server_ = nh_.advertiseService("RailCalService", &RailCalService::executeCallBack, this);
 }
 
@@ -204,7 +227,7 @@ void RailCalService::cameraCallback(const sensor_msgs::Image& image)
 
   cv::Mat mod_img = bridge->image;
 
-  cv::circle(mod_img, cv::Point2d(image.width / 2.0, image.height / 2.0), image.width / 30.0, cv::Scalar(175,0,0), image.width / 40.0);
+  cv::circle(mod_img, cv::Point2d(image.width / 2.0, image.height / 2.0), image.width / 100.0, cv::Scalar(175,0,0), image.width / 200.0);
   bridge->image = mod_img;
   sensor_msgs::Image out_img;
   bridge->toImageMsg(out_img);
@@ -343,17 +366,33 @@ bool RailCalService::executeCallBack(intrinsic_cal::rail_ical_run::Request& req,
   }
 }
 
-void RailCalService::initMCircleTarget(int rows, int cols, double circle_dia, double spacing)
+void RailCalService::initTarget(int rows, int cols, double spacing, double circle_dia)
 {
   target_ = boost::make_shared<industrial_extrinsic_cal::Target>();
   target_->is_moving_ = true;
-  target_->target_name_ = "modified_circle_target";
   target_->target_frame_ = "target_frame";
-  target_->target_type_ = 2;
-  target_->circle_grid_parameters_.pattern_rows = rows;
-  target_->circle_grid_parameters_.pattern_cols = cols;
-  target_->circle_grid_parameters_.circle_diameter = circle_dia;
-  target_->circle_grid_parameters_.is_symmetric = true;
+  target_->target_type_ = target_type_;
+
+  if (target_type_ == pattern_options::Chessboard)
+  {
+    target_->target_name_ = "chessboard_target";
+    target_->checker_board_parameters_.pattern_rows = rows;
+    target_->checker_board_parameters_.pattern_cols = cols;
+    target_->checker_board_parameters_.square_size = spacing;
+  }
+  else if(target_type_ == pattern_options::ModifiedCircleGrid)
+  {
+    target_->target_name_ = "modified_circle_target";
+    target_->circle_grid_parameters_.pattern_rows = rows;
+    target_->circle_grid_parameters_.pattern_cols = cols;
+    target_->circle_grid_parameters_.circle_diameter = circle_dia;
+    target_->circle_grid_parameters_.is_symmetric = true;
+  }
+  else
+  {
+    ROS_FATAL("Unknown target type");
+  }
+
   // create a grid of points
   target_->pts_.clear();
   target_->num_points_ = rows * cols;
